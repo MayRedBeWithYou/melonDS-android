@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.util.Log
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import me.magnum.melonds.common.DirectoryAccessValidator
 import me.magnum.melonds.common.Permission
 import me.magnum.melonds.common.UriPermissionManager
@@ -28,6 +31,8 @@ import me.magnum.melonds.utils.SubjectSharedFlow
 import java.text.Normalizer
 import java.util.Calendar
 import javax.inject.Inject
+import me.magnum.melonds.MelonEmulator
+import me.magnum.melonds.ui.emulator.model.ToastEvent
 
 @HiltViewModel
 class RomListViewModel @Inject constructor(
@@ -54,6 +59,9 @@ class RomListViewModel @Inject constructor(
     val onRomIconFilteringChanged = settingsRepository.observeRomIconFiltering()
 
     val romScanningStatus = romsRepository.getRomScanningStatus()
+
+    private val _toastEvent = EventSharedFlow<ToastEvent>()
+    val toastEvent: Flow<ToastEvent> = _toastEvent
 
     init {
         viewModelScope.launch {
@@ -124,6 +132,41 @@ class RomListViewModel @Inject constructor(
             _sortingMode.value = sortingMode
             _sortingOrder.value = sortingMode.defaultOrder
         }
+    }
+
+    fun getFirmwareNickname(): String {
+        return settingsRepository.getFirmwareConfiguration().nickname
+    }
+
+    fun getLastMultiplayerIp(): String {
+        return settingsRepository.getLastMultiplayerIp()
+    }
+
+    suspend fun startLanHost(nickname: String, numPlayers: Int, port: Int): Boolean = withContext(Dispatchers.IO) {
+        Log.d("RomListViewModel", "startLanHost: $nickname, $numPlayers, $port")
+        val localIp = getLocalIpAddress()
+        _toastEvent.tryEmit(ToastEvent.LobbyCreated(localIp, port))
+        MelonEmulator.startLanHost(nickname, numPlayers, port)
+    }
+
+    private fun getLocalIpAddress(): String {
+        try {
+            for (intf in NetworkInterface.getNetworkInterfaces()) {
+                for (addr in intf.inetAddresses) {
+                    if (!addr.isLoopbackAddress && addr is Inet4Address) {
+                        return addr.hostAddress ?: "Unknown"
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return "Unknown"
+    }
+
+    suspend fun startLanJoin(nickname: String, hostIp: String, port: Int): Boolean = withContext(Dispatchers.IO) {
+        Log.d("RomListViewModel", "startLanJoin: $nickname, $hostIp, $port")
+        settingsRepository.setLastMultiplayerIp(hostIp)
+        _toastEvent.tryEmit(ToastEvent.AttemptingToJoin(hostIp, port))
+        MelonEmulator.startLanJoin(nickname, hostIp, port)
     }
 
     fun addRomSearchDirectory(directoryUri: Uri) {

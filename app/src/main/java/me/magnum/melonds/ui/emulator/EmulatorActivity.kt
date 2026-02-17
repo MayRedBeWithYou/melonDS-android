@@ -7,6 +7,7 @@ import android.hardware.display.DisplayManager
 import android.hardware.input.InputManager
 import android.os.Bundle
 import android.os.Handler
+import android.util.Log
 import android.view.Choreographer
 import android.view.Display
 import android.view.KeyEvent
@@ -24,6 +25,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
@@ -97,6 +100,8 @@ import me.magnum.melonds.ui.emulator.ui.AchievementListDialog
 import me.magnum.melonds.ui.emulator.ui.AchievementUpdatesUi
 import me.magnum.melonds.ui.layouteditor.model.LayoutTarget
 import me.magnum.melonds.ui.settings.SettingsActivity
+import me.magnum.melonds.ui.emulator.ui.MultiplayerDialog
+import me.magnum.melonds.ui.emulator.ui.LobbyDialog
 import me.magnum.melonds.ui.theme.MelonTheme
 import java.text.SimpleDateFormat
 import javax.inject.Inject
@@ -262,6 +267,9 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
         closeRewindWindow()
     }
     private val showAchievementList = mutableStateOf(false)
+    private val showMultiplayerDialog = mutableStateOf(false)
+    private val isInLobby = mutableStateOf(false)
+    private var isConnecting by mutableStateOf(false)
 
     private val activeOverlays = EmulatorOverlayTracker(
         onOverlaysCleared = {
@@ -362,6 +370,65 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
                         }
                     )
                 }
+
+                if (showMultiplayerDialog.value) {
+                    if (isInLobby.value) {
+                        LobbyDialog(
+                            onLeave = {
+                                MelonEmulator.endSession()
+                                isInLobby.value = false
+                                activeOverlays.removeActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
+                                viewModel.resumeEmulator()
+                                showMultiplayerDialog.value = false
+                            },
+                            onDismiss = {
+                                activeOverlays.removeActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
+                                viewModel.resumeEmulator()
+                                showMultiplayerDialog.value = false
+                            }
+                        )
+                    } else {
+                        MultiplayerDialog(
+                            defaultNickname = viewModel.getFirmwareNickname(),
+                            initialIp = viewModel.getLastMultiplayerIp(),
+                            onHost = { nickname, numPlayers, port ->
+                                lifecycleScope.launch {
+                                    isConnecting = true
+                                    val success = viewModel.startLanHost(nickname, numPlayers, port)
+                                    isConnecting = false
+                                    if (success) {
+                                        isInLobby.value = true
+                                        showMultiplayerDialog.value = false
+                                    } else {
+                                        Toast.makeText(this@EmulatorActivity, "Failed to create lobby", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            onJoin = { nickname, ip, port ->
+                                lifecycleScope.launch {
+                                    isConnecting = true
+                                    val success = viewModel.startLanJoin(nickname, ip, port)
+                                    isConnecting = false
+                                    Log.d("EmulatorActivity", "onJoin result: $success")
+                                    if (success) {
+                                        isInLobby.value = true
+                                        showMultiplayerDialog.value = false
+                                    } else {
+                                        Toast.makeText(this@EmulatorActivity, "Failed to join lobby", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            onDismiss = {
+                                if (!isConnecting) {
+                                    activeOverlays.removeActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
+                                    viewModel.resumeEmulator()
+                                    showMultiplayerDialog.value = false
+                                }
+                            },
+                            isConnecting = isConnecting
+                        )
+                    }
+                }
             }
         }
 
@@ -445,9 +512,15 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
                         ToastEvent.CannotLoadStateWhenRunningFirmware,
                         ToastEvent.CannotSaveStateWhenRunningFirmware -> R.string.save_states_not_supported to Toast.LENGTH_LONG
                         ToastEvent.CannotSwitchRetroAchievementsMode -> R.string.retro_achievements_relaunch_to_apply_settings to Toast.LENGTH_LONG
+                        is ToastEvent.PlayerJoined -> getString(R.string.multiplayer_player_joined, it.name) to Toast.LENGTH_SHORT
+                        is ToastEvent.PlayerLeft -> getString(R.string.multiplayer_player_left, it.name) to Toast.LENGTH_SHORT
+                        ToastEvent.ConnectionLost -> R.string.multiplayer_connection_lost to Toast.LENGTH_LONG
+                        is ToastEvent.LobbyCreated -> getString(R.string.multiplayer_lobby_created, it.ip, it.port) to Toast.LENGTH_SHORT
+                        ToastEvent.ExplicitLeave -> R.string.multiplayer_lobby_left to Toast.LENGTH_SHORT
+                        is ToastEvent.AttemptingToJoin -> getString(R.string.multiplayer_attempting_to_join, it.ip, it.port) to Toast.LENGTH_SHORT
                     }
-
-                    Toast.makeText(this@EmulatorActivity, message, duration).show()
+                    val messageString = if (message is Int) getString(message) else message as String
+                    Toast.makeText(this@EmulatorActivity, messageString, duration).show()
                 }
             }
         }
@@ -486,6 +559,11 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
                             activeOverlays.addActiveOverlay(EmulatorOverlay.ACHIEVEMENTS_DIALOG)
                             showAchievementList.value = true
                         }
+                        EmulatorUiEvent.ShowMultiplayerDialog -> {
+                            activeOverlays.addActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
+                            viewModel.pauseEmulator(false)
+                            showMultiplayerDialog.value = true
+                        }
                     }
                 }
             }
@@ -497,6 +575,9 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
                         is EmulatorEvent.RumbleStart -> emulatorRumbleManager.startRumbling()
                         EmulatorEvent.RumbleStop -> emulatorRumbleManager.stopRumbling()
                         EmulatorEvent.Stop -> { /* TODO */ }
+                        is EmulatorEvent.PlayerJoined -> { /* Handled in toastEvent collection */ }
+                        is EmulatorEvent.PlayerLeft -> { /* Handled in toastEvent collection */ }
+                        EmulatorEvent.ConnectionLost -> { /* Handled in toastEvent collection */ }
                     }
                 }
             }

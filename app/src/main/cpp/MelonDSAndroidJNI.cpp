@@ -517,6 +517,76 @@ Java_me_magnum_melonds_MelonEmulator_updateEmulatorConfiguration(JNIEnv* env, jo
         targetFps = 60 * fastForwardSpeedMultiplier;
     }
 }
+
+JNIEXPORT jboolean JNICALL
+Java_me_magnum_melonds_MelonEmulator_startLanHost(JNIEnv* env, jobject thiz, jstring playerName, jint numPlayers, jint port)
+{
+    const char* name = env->GetStringUTFChars(playerName, JNI_FALSE);
+    Platform::Log(Platform::LogLevel::Info, "JNI startLanHost: name=%s, numPlayers=%d, port=%d\n", name, numPlayers, port);
+    bool result = MelonDSAndroid::startLanHost(name, numPlayers, port);
+    env->ReleaseStringUTFChars(playerName, name);
+    return result;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_me_magnum_melonds_MelonEmulator_startLanJoin(JNIEnv* env, jobject thiz, jstring playerName, jstring hostIp, jint port)
+{
+    const char* name = env->GetStringUTFChars(playerName, JNI_FALSE);
+    const char* ip = env->GetStringUTFChars(hostIp, JNI_FALSE);
+    Platform::Log(Platform::LogLevel::Info, "JNI startLanJoin: name=%s, ip=%s, port=%d\n", name, ip, port);
+    bool result = MelonDSAndroid::startLanJoin(name, ip, port);
+    env->ReleaseStringUTFChars(playerName, name);
+    env->ReleaseStringUTFChars(hostIp, ip);
+    return result;
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_stopMultiplayer(JNIEnv* env, jobject thiz)
+{
+    MelonDSAndroid::stopMultiplayer();
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_me_magnum_melonds_MelonEmulator_getPlayerList(JNIEnv* env, jobject thiz)
+{
+    jclass lanPlayerClass = env->FindClass("me/magnum/melonds/domain/model/LanPlayer");
+    jmethodID lanPlayerConstructor = env->GetMethodID(lanPlayerClass, "<init>", "(ILjava/lang/String;IZ)V");
+
+    auto playerList = MelonDSAndroid::getPlayerList();
+
+    jobjectArray result = env->NewObjectArray(playerList.size(), lanPlayerClass, nullptr);
+
+    int index = 0;
+    for (const auto& player : playerList)
+    {
+        jstring name = env->NewStringUTF(player.name.c_str());
+        jobject lanPlayer = env->NewObject(lanPlayerClass, lanPlayerConstructor,
+            (jint) player.id, name, (jint) player.status, (jboolean) player.isLocalPlayer);
+        env->SetObjectArrayElement(result, index++, lanPlayer);
+        env->DeleteLocalRef(name);
+        env->DeleteLocalRef(lanPlayer);
+    }
+
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_me_magnum_melonds_MelonEmulator_getMaxPlayers(JNIEnv* env, jobject thiz)
+{
+    return MelonDSAndroid::getMaxPlayers();
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_endSession(JNIEnv* env, jobject thiz)
+{
+    MelonDSAndroid::endSession();
+}
+
+JNIEXPORT void JNICALL
+Java_me_magnum_melonds_MelonEmulator_processMultiplayerEvents(JNIEnv* env, jobject thiz)
+{
+    MelonDSAndroid::processMultiplayerEvents();
+}
 }
 
 MelonDSAndroid::RomGbaSlotConfig* buildGbaSlotConfig(GbaSlotType slotType, const char* romPath, const char* savePath)

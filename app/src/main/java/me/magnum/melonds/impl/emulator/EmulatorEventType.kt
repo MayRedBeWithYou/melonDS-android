@@ -72,4 +72,20 @@ enum class EmulatorEventType(val event: Int) {
      * * leaderboard value (`i32`)
      */
     EventRALeaderboardAttemptCompleted(213),
+    /**
+     * Multiplayer player joined event. Data:
+     * * name length (`i32`)
+     * * name string (`u8[32]`)
+     */
+    EventMPPlayerJoined(300),
+    /**
+     * Multiplayer player left event. Data:
+     * * name length (`i32`)
+     * * name string (`u8[32]`)
+     */
+    EventMPPlayerLeft(301),
+    /**
+     * Multiplayer connection lost event. No data.
+     */
+    EventMPConnectionLost(302),
 }

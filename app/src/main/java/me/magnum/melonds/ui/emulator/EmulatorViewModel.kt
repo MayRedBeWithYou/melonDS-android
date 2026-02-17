@@ -11,6 +11,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
+import android.util.Log
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -40,6 +44,7 @@ import me.magnum.melonds.domain.model.FpsCounterPosition
 import me.magnum.melonds.domain.model.RomInfo
 import me.magnum.melonds.domain.model.RuntimeBackground
 import me.magnum.melonds.domain.model.SaveStateSlot
+import me.magnum.melonds.domain.model.emulator.EmulatorEvent
 import me.magnum.melonds.domain.model.emulator.EmulatorSessionUpdateAction
 import me.magnum.melonds.domain.model.emulator.FirmwareLaunchResult
 import me.magnum.melonds.domain.model.emulator.RomLaunchResult
@@ -157,6 +162,17 @@ class EmulatorViewModel @Inject constructor(
             launchEmulator(launchArgs)
         } else {
             _uiEvent.tryEmit(EmulatorUiEvent.CloseEmulator)
+        }
+
+        viewModelScope.launch {
+            emulatorEvents.collect { event ->
+                when (event) {
+                    is EmulatorEvent.PlayerJoined -> _toastEvent.tryEmit(ToastEvent.PlayerJoined(event.name))
+                    is EmulatorEvent.PlayerLeft -> _toastEvent.tryEmit(ToastEvent.PlayerLeft(event.name))
+                    EmulatorEvent.ConnectionLost -> _toastEvent.tryEmit(ToastEvent.ConnectionLost)
+                    else -> { /* Ignore other events here */ }
+                }
+            }
         }
     }
 
@@ -404,6 +420,7 @@ class EmulatorViewModel @Inject constructor(
                         }
                     }
                     RomPauseMenuOption.VIEW_ACHIEVEMENTS -> _uiEvent.tryEmit(EmulatorUiEvent.ShowAchievementList)
+                    RomPauseMenuOption.MULTIPLAYER -> _uiEvent.tryEmit(EmulatorUiEvent.ShowMultiplayerDialog)
                     RomPauseMenuOption.RESET -> resetEmulator()
                     RomPauseMenuOption.EXIT -> {
                         emulatorManager.stopEmulator()
@@ -711,6 +728,49 @@ class EmulatorViewModel @Inject constructor(
 
     fun getFpsCounterPosition(): FpsCounterPosition {
         return settingsRepository.getFpsCounterPosition()
+    }
+
+    fun getFirmwareNickname(): String {
+        return settingsRepository.getFirmwareConfiguration().nickname
+    }
+
+    fun getLastMultiplayerIp(): String {
+        return settingsRepository.getLastMultiplayerIp()
+    }
+
+    suspend fun startLanHost(playerName: String, numPlayers: Int, port: Int): Boolean = withContext(Dispatchers.IO) {
+        Log.d("EmulatorViewModel", "startLanHost: $playerName, $numPlayers, $port")
+        val localIp = getLocalIpAddress()
+        _toastEvent.tryEmit(ToastEvent.LobbyCreated(localIp, port))
+        MelonEmulator.startLanHost(playerName, numPlayers, port)
+    }
+
+    private fun getLocalIpAddress(): String {
+        try {
+            for (intf in NetworkInterface.getNetworkInterfaces()) {
+                for (addr in intf.inetAddresses) {
+                    if (!addr.isLoopbackAddress && addr is Inet4Address) {
+                        return addr.hostAddress ?: "Unknown"
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return "Unknown"
+    }
+
+
+    suspend fun startLanJoin(playerName: String, hostIp: String, port: Int): Boolean = withContext(Dispatchers.IO) {
+        Log.d("EmulatorViewModel", "startLanJoin: $playerName, $hostIp, $port")
+        settingsRepository.setLastMultiplayerIp(hostIp)
+        _toastEvent.tryEmit(ToastEvent.AttemptingToJoin(hostIp, port))
+        MelonEmulator.startLanJoin(playerName, hostIp, port)
+    }
+
+    fun stopMultiplayer() {
+        viewModelScope.launch {
+            _toastEvent.emit(ToastEvent.ExplicitLeave)
+        }
+        MelonEmulator.stopMultiplayer()
     }
 
     private suspend fun getRomEnabledCheats(romInfo: RomInfo): List<Cheat> {

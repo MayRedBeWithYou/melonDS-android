@@ -13,4 +13,10 @@ sealed class ToastEvent {
     data object CannotSaveStateWhenRunningFirmware : ToastEvent()
     data object CannotLoadStateWhenRunningFirmware : ToastEvent()
     data object CannotSwitchRetroAchievementsMode : ToastEvent()
+    data class PlayerJoined(val name: String) : ToastEvent()
+    data class PlayerLeft(val name: String) : ToastEvent()
+    data object ConnectionLost : ToastEvent()
+    data class LobbyCreated(val ip: String, val port: Int) : ToastEvent()
+    data object ExplicitLeave : ToastEvent()
+    data class AttemptingToJoin(val ip: String, val port: Int) : ToastEvent()
 }

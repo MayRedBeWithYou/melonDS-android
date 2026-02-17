@@ -597,4 +597,14 @@ class SharedPreferencesSettingsRepository(
     override fun observeRenderConfiguration(): Flow<RendererConfiguration> {
         return renderConfigurationFlow
     }
+
+    override fun getLastMultiplayerIp(): String {
+        return preferences.getString("last_multiplayer_ip", "10.0.2.2")!!
+    }
+
+    override fun setLastMultiplayerIp(ip: String) {
+        preferences.edit {
+            putString("last_multiplayer_ip", ip)
+        }
+    }
 }

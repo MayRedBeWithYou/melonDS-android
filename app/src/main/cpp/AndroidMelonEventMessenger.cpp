@@ -1,5 +1,8 @@
 #include "AndroidMelonEventMessenger.h"
 #include "EmulatorMessageQueueJNI.h"
+#include <cstdint>
+#include <cstring>
+#include <string>
 
 void AndroidMelonEventMessenger::onRumbleStart(int durationMs)
 {
@@ -92,4 +95,35 @@ void AndroidMelonEventMessenger::onLeaderboardAttemptCompleted(long leaderboardI
     };
 
     MelonDSAndroid::fireEmulatorEvent(EVENT_RA_LBOARD_ATTEMPT_COMPLETED, sizeof(data), &data);
+}
+
+void AndroidMelonEventMessenger::onMultiplayerPlayerJoined(const std::string& playerName)
+{
+    struct {
+        int32_t nameSize;
+        char name[32];
+    } data = {
+        .nameSize = (int32_t) playerName.size(),
+    };
+    strncpy(data.name, playerName.c_str(), sizeof(data.name));
+
+    MelonDSAndroid::fireEmulatorEvent(EVENT_MP_PLAYER_JOINED, sizeof(data), &data);
+}
+
+void AndroidMelonEventMessenger::onMultiplayerPlayerLeft(const std::string& playerName)
+{
+    struct {
+        int32_t nameSize;
+        char name[32];
+    } data = {
+        .nameSize = (int32_t) playerName.size(),
+    };
+    strncpy(data.name, playerName.c_str(), sizeof(data.name));
+
+    MelonDSAndroid::fireEmulatorEvent(EVENT_MP_PLAYER_LEFT, sizeof(data), &data);
+}
+
+void AndroidMelonEventMessenger::onMultiplayerConnectionLost()
+{
+    MelonDSAndroid::fireEmulatorEvent(EVENT_MP_CONNECTION_LOST);
 }

@@ -83,4 +83,7 @@ interface SettingsRepository {
     fun setSelectedLayoutId(layoutId: UUID)
 
     fun observeRenderConfiguration(): Flow<RendererConfiguration>
+
+    fun getLastMultiplayerIp(): String
+    fun setLastMultiplayerIp(ip: String)
 }
