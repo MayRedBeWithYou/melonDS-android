@@ -576,6 +576,12 @@ Java_me_magnum_melonds_MelonEmulator_getMaxPlayers(JNIEnv* env, jobject thiz)
     return MelonDSAndroid::getMaxPlayers();
 }
 
+JNIEXPORT jint JNICALL
+Java_me_magnum_melonds_MelonEmulator_getType(JNIEnv* env, jobject thiz)
+{
+    return MelonDSAndroid::getType();
+}
+
 JNIEXPORT void JNICALL
 Java_me_magnum_melonds_MelonEmulator_endSession(JNIEnv* env, jobject thiz)
 {

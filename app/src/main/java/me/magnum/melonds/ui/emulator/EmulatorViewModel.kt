@@ -332,8 +332,13 @@ class EmulatorViewModel @Inject constructor(
     }
 
     fun pauseEmulator(showPauseMenu: Boolean) {
+        val mpType = MelonEmulator.getType()
+        Log.d("EmulatorViewModel", "pauseEmulator: mpType=$mpType")
+        val isLanMultiplayer = mpType == 1 // MPInterface_LAN
         sessionCoroutineScope.launch {
-            emulatorManager.pauseEmulator()
+            if (!isLanMultiplayer) {
+                emulatorManager.pauseEmulator()
+            }
             if (showPauseMenu) {
                 val pauseOptions = when (_emulatorState.value) {
                     is EmulatorState.RunningRom -> {
@@ -741,8 +746,12 @@ class EmulatorViewModel @Inject constructor(
     suspend fun startLanHost(playerName: String, numPlayers: Int, port: Int): Boolean = withContext(Dispatchers.IO) {
         Log.d("EmulatorViewModel", "startLanHost: $playerName, $numPlayers, $port")
         val localIp = getLocalIpAddress()
-        _toastEvent.tryEmit(ToastEvent.LobbyCreated(localIp, port))
-        MelonEmulator.startLanHost(playerName, numPlayers, port)
+        val success = MelonEmulator.startLanHost(playerName, numPlayers, port)
+        if (success) {
+            _toastEvent.tryEmit(ToastEvent.LobbyCreated(localIp, port))
+            resumeEmulator()
+        }
+        return@withContext success
     }
 
     private fun getLocalIpAddress(): String {

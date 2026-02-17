@@ -144,6 +144,8 @@ object MelonEmulator {
 
     external fun getMaxPlayers(): Int
 
+    external fun getType(): Int
+
     external fun endSession()
 
     external fun processMultiplayerEvents()
