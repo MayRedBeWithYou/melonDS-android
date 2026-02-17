@@ -77,6 +77,21 @@ class AndroidEmulatorManager(
             }
             EmulatorEventType.EventRALeaderboardAttemptCanceled -> achievementsSharedFlow.tryEmit(RAEvent.OnLeaderboardAttemptCancelled(data.getLong()))
             EmulatorEventType.EventRALeaderboardAttemptCompleted -> achievementsSharedFlow.tryEmit(RAEvent.OnLeaderboardAttemptCompleted(data.getLong(), data.getInt()))
+            EmulatorEventType.EventMPPlayerJoined -> {
+                val nameSize = data.getInt()
+                val nameBytes = ByteArray(32)
+                data.get(nameBytes)
+                val name = String(nameBytes, 0, nameSize)
+                _emulatorEvents.tryEmit(EmulatorEvent.PlayerJoined(name))
+            }
+            EmulatorEventType.EventMPPlayerLeft -> {
+                val nameSize = data.getInt()
+                val nameBytes = ByteArray(32)
+                data.get(nameBytes)
+                val name = String(nameBytes, 0, nameSize)
+                _emulatorEvents.tryEmit(EmulatorEvent.PlayerLeft(name))
+            }
+            EmulatorEventType.EventMPConnectionLost -> _emulatorEvents.tryEmit(EmulatorEvent.ConnectionLost)
         }
     }
 

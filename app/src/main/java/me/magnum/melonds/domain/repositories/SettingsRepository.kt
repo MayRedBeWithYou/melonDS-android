@@ -113,4 +113,7 @@ interface SettingsRepository {
     fun setDualScreenExternalVerticalAlignmentOverride(alignment: ScreenAlignment?)
 
     fun observeRenderConfiguration(): Flow<RendererConfiguration>
+
+    fun getLastMultiplayerIp(): String
+    fun setLastMultiplayerIp(ip: String)
 }

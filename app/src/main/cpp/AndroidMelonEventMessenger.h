@@ -1,6 +1,7 @@
 #ifndef ANDROIDMELONEVENTMESSENGER_H
 #define ANDROIDMELONEVENTMESSENGER_H
 
+#include <string>
 #include <MelonEventMessenger.h>
 
 class AndroidMelonEventMessenger : public MelonDSAndroid::MelonEventMessenger
@@ -19,6 +20,10 @@ public:
     void onLeaderboardAttemptCanceled(long leaderboardId) override;
     void onLeaderboardAttemptCompleted(long leaderboardId, int value) override;
 
+    void onMultiplayerPlayerJoined(const std::string& playerName) override;
+    void onMultiplayerPlayerLeft(const std::string& playerName) override;
+    void onMultiplayerConnectionLost() override;
+
 private:
     // Event type constants
     static constexpr int EVENT_RUMBLE_START = 100;
@@ -33,6 +38,10 @@ private:
     static constexpr int EVENT_RA_LBOARD_ATTEMPT_UPDATED = 211;
     static constexpr int EVENT_RA_LBOARD_ATTEMPT_CANCELED = 212;
     static constexpr int EVENT_RA_LBOARD_ATTEMPT_COMPLETED = 213;
+
+    static constexpr int EVENT_MP_PLAYER_JOINED = 300;
+    static constexpr int EVENT_MP_PLAYER_LEFT = 301;
+    static constexpr int EVENT_MP_CONNECTION_LOST = 302;
 };
 
 #endif // ANDROIDMELONEVENTMESSENGER_H

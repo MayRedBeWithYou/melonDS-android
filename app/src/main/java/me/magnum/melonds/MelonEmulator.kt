@@ -5,6 +5,7 @@ import me.magnum.melonds.common.camera.DSiCameraSource
 import me.magnum.melonds.domain.model.Cheat
 import me.magnum.melonds.domain.model.EmulatorConfiguration
 import me.magnum.melonds.domain.model.Input
+import me.magnum.melonds.domain.model.LanPlayer
 import me.magnum.melonds.domain.model.retroachievements.RASimpleAchievement
 import me.magnum.melonds.domain.model.retroachievements.RASimpleLeaderboard
 import me.magnum.melonds.domain.model.retroachievements.RASimpleRuntimeAchievement
@@ -132,4 +133,18 @@ object MelonEmulator {
     external fun setMicrophoneEnabled(enabled: Boolean)
 
     external fun updateEmulatorConfiguration(emulatorConfiguration: EmulatorConfiguration)
+
+    external fun startLanHost(playerName: String, numPlayers: Int, port: Int): Boolean
+
+    external fun startLanJoin(playerName: String, hostIp: String, port: Int): Boolean
+
+    external fun stopMultiplayer()
+
+    external fun getPlayerList(): Array<LanPlayer>
+
+    external fun getMaxPlayers(): Int
+
+    external fun endSession()
+
+    external fun processMultiplayerEvents()
 }
