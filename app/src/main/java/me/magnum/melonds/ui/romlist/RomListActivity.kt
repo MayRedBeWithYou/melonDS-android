@@ -31,7 +31,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import me.magnum.melonds.MelonEmulator
 import me.magnum.melonds.ui.emulator.ui.MultiplayerDialog
-import me.magnum.melonds.ui.emulator.ui.LobbyDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -65,7 +64,6 @@ class RomListActivity : AppCompatActivity() {
 
     private var downloadProgressDialog: AlertDialog? = null
     private var showMultiplayerDialog by mutableStateOf(false)
-    private var isInLobby by mutableStateOf(false)
     private var isConnecting by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,52 +169,41 @@ class RomListActivity : AppCompatActivity() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 if (showMultiplayerDialog) {
-                    if (isInLobby) {
-                        LobbyDialog(
-                            onLeave = {
-                                MelonEmulator.endSession()
-                                isInLobby = false
-                                showMultiplayerDialog = false
-                            },
-                            onDismiss = {
-                                showMultiplayerDialog = false
+                    MultiplayerDialog(
+                        defaultNickname = viewModel.getFirmwareNickname(),
+                        initialIp = viewModel.getLastMultiplayerIp(),
+                        onDismiss = { if (!isConnecting) showMultiplayerDialog = false },
+                        onHost = { nickname, numPlayers, port ->
+                            lifecycleScope.launch {
+                                isConnecting = true
+                                val success = viewModel.startLanHost(nickname, numPlayers, port)
+                                isConnecting = false
+                                if (success) {
+                                    // MultiplayerDialog will internally switch to lobby
+                                } else {
+                                    Toast.makeText(this@RomListActivity, "Failed to create lobby", Toast.LENGTH_LONG).show()
+                                }
                             }
-                        )
-                    } else {
-                        MultiplayerDialog(
-                            defaultNickname = viewModel.getFirmwareNickname(),
-                            initialIp = viewModel.getLastMultiplayerIp(),
-                            onDismiss = { if (!isConnecting) showMultiplayerDialog = false },
-                            onHost = { nickname, numPlayers, port ->
-                                lifecycleScope.launch {
-                                    isConnecting = true
-                                    val success = viewModel.startLanHost(nickname, numPlayers, port)
-                                    isConnecting = false
-                                    if (success) {
-                                        isInLobby = true
-                                        showMultiplayerDialog = false
-                                    } else {
-                                        Toast.makeText(this@RomListActivity, "Failed to create lobby", Toast.LENGTH_LONG).show()
-                                    }
+                        },
+                        onJoin = { nickname, serverIp, port ->
+                            lifecycleScope.launch {
+                                isConnecting = true
+                                val success = viewModel.startLanJoin(nickname, serverIp, port)
+                                isConnecting = false
+                                Log.d("RomListActivity", "onJoin result: $success")
+                                if (success) {
+                                    // MultiplayerDialog will internally switch to lobby
+                                } else {
+                                    Toast.makeText(this@RomListActivity, "Failed to join lobby", Toast.LENGTH_LONG).show()
                                 }
-                            },
-                            onJoin = { nickname, serverIp, port ->
-                                lifecycleScope.launch {
-                                    isConnecting = true
-                                    val success = viewModel.startLanJoin(nickname, serverIp, port)
-                                    isConnecting = false
-                                    Log.d("RomListActivity", "onJoin result: $success")
-                                    if (success) {
-                                        isInLobby = true
-                                        showMultiplayerDialog = false
-                                    } else {
-                                        Toast.makeText(this@RomListActivity, "Failed to join lobby", Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            },
-                            isConnecting = isConnecting
-                        )
-                    }
+                            }
+                        },
+                        onLeave = {
+                            MelonEmulator.endSession()
+                            showMultiplayerDialog = false
+                        },
+                        isConnecting = isConnecting
+                    )
                 }
             }
         }
