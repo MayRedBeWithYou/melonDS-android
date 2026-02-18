@@ -101,7 +101,6 @@ import me.magnum.melonds.ui.emulator.ui.AchievementUpdatesUi
 import me.magnum.melonds.ui.layouteditor.model.LayoutTarget
 import me.magnum.melonds.ui.settings.SettingsActivity
 import me.magnum.melonds.ui.emulator.ui.MultiplayerDialog
-import me.magnum.melonds.ui.emulator.ui.LobbyDialog
 import me.magnum.melonds.ui.theme.MelonTheme
 import java.text.SimpleDateFormat
 import javax.inject.Inject
@@ -268,7 +267,6 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
     }
     private val showAchievementList = mutableStateOf(false)
     private val showMultiplayerDialog = mutableStateOf(false)
-    private val isInLobby = mutableStateOf(false)
     private var isConnecting by mutableStateOf(false)
 
     private val activeOverlays = EmulatorOverlayTracker(
@@ -372,62 +370,46 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
                 }
 
                 if (showMultiplayerDialog.value) {
-                    if (isInLobby.value) {
-                        LobbyDialog(
-                            onLeave = {
-                                MelonEmulator.endSession()
-                                isInLobby.value = false
-                                activeOverlays.removeActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
-                                viewModel.resumeEmulator()
-                                showMultiplayerDialog.value = false
-                            },
-                            onDismiss = {
+                    MultiplayerDialog(
+                        defaultNickname = viewModel.getFirmwareNickname(),
+                        initialIp = viewModel.getLastMultiplayerIp(),
+                        onHost = { nickname, numPlayers, port ->
+                            lifecycleScope.launch {
+                                isConnecting = true
+                                val success = viewModel.startLanHost(nickname, numPlayers, port)
+                                isConnecting = false
+                                if (!success) {
+                                    Toast.makeText(this@EmulatorActivity, "Failed to create lobby", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        onJoin = { nickname, ip, port ->
+                            lifecycleScope.launch {
+                                isConnecting = true
+                                val success = viewModel.startLanJoin(nickname, ip, port)
+                                isConnecting = false
+                                Log.d("EmulatorActivity", "onJoin result: $success")
+                                if (!success) {
+                                    Toast.makeText(this@EmulatorActivity, "Failed to join lobby", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        onLeave = {
+                            MelonEmulator.endSession()
+                            Toast.makeText(this@EmulatorActivity, "You left the lobby", Toast.LENGTH_LONG).show()
+                            activeOverlays.removeActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
+                            viewModel.resumeEmulator()
+                            showMultiplayerDialog.value = false
+                        },
+                        onDismiss = {
+                            if (!isConnecting) {
                                 activeOverlays.removeActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
                                 viewModel.resumeEmulator()
                                 showMultiplayerDialog.value = false
                             }
-                        )
-                    } else {
-                        MultiplayerDialog(
-                            defaultNickname = viewModel.getFirmwareNickname(),
-                            initialIp = viewModel.getLastMultiplayerIp(),
-                            onHost = { nickname, numPlayers, port ->
-                                lifecycleScope.launch {
-                                    isConnecting = true
-                                    val success = viewModel.startLanHost(nickname, numPlayers, port)
-                                    isConnecting = false
-                                    if (success) {
-                                        isInLobby.value = true
-                                        showMultiplayerDialog.value = false
-                                    } else {
-                                        Toast.makeText(this@EmulatorActivity, "Failed to create lobby", Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            },
-                            onJoin = { nickname, ip, port ->
-                                lifecycleScope.launch {
-                                    isConnecting = true
-                                    val success = viewModel.startLanJoin(nickname, ip, port)
-                                    isConnecting = false
-                                    Log.d("EmulatorActivity", "onJoin result: $success")
-                                    if (success) {
-                                        isInLobby.value = true
-                                        showMultiplayerDialog.value = false
-                                    } else {
-                                        Toast.makeText(this@EmulatorActivity, "Failed to join lobby", Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            },
-                            onDismiss = {
-                                if (!isConnecting) {
-                                    activeOverlays.removeActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
-                                    viewModel.resumeEmulator()
-                                    showMultiplayerDialog.value = false
-                                }
-                            },
-                            isConnecting = isConnecting
-                        )
-                    }
+                        },
+                        isConnecting = isConnecting
+                    )
                 }
             }
         }
