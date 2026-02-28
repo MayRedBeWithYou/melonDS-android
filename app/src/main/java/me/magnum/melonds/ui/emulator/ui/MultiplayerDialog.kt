@@ -33,14 +33,14 @@ fun MultiplayerDialog(
     isConnecting: Boolean = false,
     initialIp: String = "",
 ) {
-    var isInLobby by remember { mutableStateOf(MelonEmulator.getType() != 0) }
+    var isInLobby by remember { mutableStateOf(MelonEmulator.getType() == 1) } // 1 = MPInterface_LAN
     var players by remember { mutableStateOf(emptyList<LanPlayer>()) }
     var maxPlayers by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         while (true) {
             val mpType = MelonEmulator.getType()
-            isInLobby = mpType != 0
+            isInLobby = mpType == 1 // 1 = MPInterface_LAN; Dummy is -1, Local is 0
             if (isInLobby) {
                 val (currentPlayers, currentMax) = withContext(Dispatchers.IO) {
                     MelonEmulator.processMultiplayerEvents()

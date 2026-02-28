@@ -439,6 +439,7 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
                             showDualScreenPresets.value = false
                         },
                     )
+                }
                 if (showMultiplayerDialog.value) {
                     MultiplayerDialog(
                         defaultNickname = viewModel.getFirmwareNickname(),
@@ -666,6 +667,7 @@ class EmulatorActivity : AppCompatActivity(), Choreographer.FrameCallback {
                         EmulatorUiEvent.HideOfflineAchievementsSyncProgress -> {
                             offlineSyncProgressDialog?.dismiss()
                             offlineSyncProgressDialog = null
+                        }
                         EmulatorUiEvent.ShowMultiplayerDialog -> {
                             activeOverlays.addActiveOverlay(EmulatorOverlay.MULTIPLAYER_DIALOG)
                             viewModel.pauseEmulator(false)
